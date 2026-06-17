@@ -1,0 +1,18 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "openssl"]
+cmds = ["npm install -g pnpm@8.15.4"]
+
+[phases.install]
+cmds = ["pnpm install --frozen-lockfile"]
+
+[phases.build]
+cmds = [
+  "pnpm prisma:generate",
+  "pnpm build --filter api"
+]
+
+[start]
+cmd = "node apps/api/dist/main.js"
+
+[variables]
+NODE_ENV = "production"

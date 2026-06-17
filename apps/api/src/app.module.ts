@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
+import { HealthModule } from './health/health.module';
 
 // Phase 1: Core Accounting (MVP)
 import { AuthModule } from './modules/auth/auth.module';
@@ -80,6 +81,9 @@ import { SecurityModule } from './modules/security/security.module';
 
     // Database
     PrismaModule,
+
+    // Health Check
+    HealthModule,
 
     // Phase 1: Core Accounting (MVP)
     AuthModule,
