@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080807">
+  <meta name="description" content="Ishmuratov Diyorbek Ibratovich tayyorlagan biznesda buxgalteriya hisobi bo‘yicha interaktiv ma’ruza.">
+  <title>Biznesda buxgalteriya hisobi — interaktiv ma’ruza</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #080807;
+      --charcoal: #11110f;
+      --gold: #d2ac67;
+      --gold-soft: #a77a3c;
+      --cream: #f3ead9;
+      --muted: #b8ad9a;
+      --line: rgba(219, 184, 117, .26);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      font-family: "DM Sans", "Segoe UI", sans-serif;
+      background: var(--ink);
+      color: var(--cream);
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-width: 320px; height: 100%; margin: 0; overflow: hidden; }
+    body { display: grid; place-items: center; background: #050504; }
+    button { font: inherit; color: inherit; }
+    button:focus-visible { outline: 2px solid #f0cf8c; outline-offset: 4px; }
+    .stage {
+      position: relative;
+      width: min(100vw, 177.7778svh);
+      height: min(100svh, 56.25vw);
+      min-height: 360px;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        radial-gradient(ellipse at 50% 42%, rgba(104, 76, 37, .19), transparent 40%),
+        radial-gradient(ellipse at 50% 100%, rgba(75, 63, 43, .2), transparent 48%),
+        linear-gradient(180deg, #10100e 0%, #090908 50%, #050505 100%);
+      border: 1px solid rgba(211, 174, 104, .12);
+    }
+    .stage::before, .stage::after { position: absolute; z-index: 1; pointer-events: none; content: ""; }
+    .stage::before {
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.38), transparent 18%, transparent 82%, rgba(0,0,0,.4)),
+        radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,.34) 100%);
+    }
+    .stage::after {
+      inset: 12px;
+      border: 1px solid rgba(224, 190, 126, .1);
+      box-shadow: inset 0 0 70px rgba(0,0,0,.28);
+    }
+    #scene { position: absolute; inset: 0; z-index: 0; display: block; width: 100%; height: 100%; }
+    .scene-fallback { position: absolute; inset: 0; z-index: 0; display: none; overflow: hidden; }
+    .webgl-fallback .scene-fallback { display: block; }
+    .scene-fallback::before {
+      position: absolute; content: ""; width: min(48vw, 54vh); aspect-ratio: 1; left: 50%; top: 48%;
+      transform: translate(-50%, -50%); border-radius: 50%;
+      border: 1px solid rgba(222, 177, 93, .38);
+      box-shadow: 0 0 30px rgba(192, 135, 46, .14), inset 0 0 45px rgba(192, 135, 46, .13);
+      background: radial-gradient(circle at 35% 26%, #4b402a, #1a1813 38%, #090909 72%);
+    }
+    .scene-fallback::after {
+      position: absolute; content: ""; width: 70%; height: 1px; left: 15%; bottom: 18%;
+      background: linear-gradient(90deg, transparent, rgba(215,178,107,.55), transparent);
+      box-shadow: 0 0 32px 6px rgba(183, 132, 54, .14);
+    }
+    .fallback-orbit { position: absolute; inset: 0; display: none; pointer-events: none; }
+    .webgl-fallback .fallback-orbit { display: block; }
+    .fallback-plan {
+      position: absolute; left: 50%; top: 48%; width: clamp(150px, 16vw, 225px); min-height: 106px;
+      transform: translate(-50%, -50%); padding: 16px 18px; border-radius: 5px;
+      border: 1px solid rgba(226, 191, 126, .7);
+      background: linear-gradient(135deg, rgba(37,33,26,.96), rgba(12,12,11,.96));
+      box-shadow: 0 18px 48px rgba(0,0,0,.58), 0 0 24px rgba(201,155,75,.15);
+      text-align: left; pointer-events: auto; cursor: pointer;
+    }
+    .fallback-plan:nth-child(1) { left: 19%; top: 43%; }
+    .fallback-plan:nth-child(2) { left: 81%; top: 43%; }
+    .fallback-plan:nth-child(3) { left: 50%; top: 78%; }
+    .fallback-plan span { display: block; color: var(--gold); font-size: 10px; letter-spacing: .2em; margin-bottom: 8px; }
+    .fallback-plan strong { font: 500 15px/1.25 "Playfair Display", Georgia, serif; }
+    .ambient-grain {
+      position: absolute; inset: 0; z-index: 2; opacity: .055; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E");
+    }
+    .topbar {
+      position: absolute; z-index: 8; top: calc(25px + var(--safe-top)); left: 4.2%; right: 4.2%;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    }
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .brand-mark {
+      width: 39px; height: 39px; display: grid; place-items: center; flex: 0 0 auto;
+      border: 1px solid rgba(213,176,105,.56); border-radius: 50%;
+      color: #e5c582; font: 600 13px "Playfair Display", Georgia, serif;
+      box-shadow: 0 0 24px rgba(190,143,62,.11), inset 0 0 14px rgba(190,143,62,.08);
+    }
+    .brand-copy { display: grid; gap: 3px; }
+    .brand-copy strong { font-size: 10px; letter-spacing: .2em; font-weight: 600; color: #e8dcc5; }
+    .brand-copy span { font-size: 9px; letter-spacing: .15em; color: #a69a84; }
+    .top-actions { display: flex; gap: 9px; align-items: center; }
+    .icon-button {
+      width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer;
+      border: 1px solid rgba(222,190,127,.24); border-radius: 50%;
+      background: rgba(18,17,14,.56); color: #e3cfaa; backdrop-filter: blur(12px);
+      transition: background .2s ease, border-color .2s ease, transform .2s ease;
+    }
+    .icon-button:hover { background: rgba(108,81,40,.4); border-color: rgba(234,196,124,.66); transform: translateY(-1px); }
+    .icon-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-button[aria-pressed="true"] { color: #f2d48d; border-color: rgba(236,196,112,.7); }
+    .hero {
+      position: absolute; z-index: 5; left: 50%; top: 47%; width: min(560px, 50%);
+      transform: translate(-50%, -50%); display: grid; justify-items: center; text-align: center;
+      transition: opacity .7s ease, transform .8s cubic-bezier(.2,.75,.25,1);
+    }
+    .state-intro .hero { opacity: 0; transform: translate(-50%, -46%); pointer-events: none; }
+    .state-plans .hero, .state-content .hero { opacity: 0; transform: translate(-50%, -54%); pointer-events: none; }
+    .hero-kicker { margin: 0 0 15px; color: #d8b773; font-size: 10px; letter-spacing: .28em; text-transform: uppercase; }
+    .topic-launch {
+      display: block; padding: 0; border: 0; background: transparent; text-align: center;
+      cursor: pointer; text-shadow: 0 4px 22px rgba(0,0,0,.86);
+    }
+    .topic-launch h1 {
+      max-width: 660px; margin: 0; color: #fbf3e4; font: 500 clamp(33px, 4.2vw, 61px)/1.04 "Playfair Display", Georgia, serif;
+      letter-spacing: -.035em; text-wrap: balance;
+    }
+    .topic-launch:hover h1 { color: #ffebbf; }
+    .hero-instruction { margin: 19px 0 0; display: flex; align-items: center; gap: 9px; color: #c0b49e; font-size: 12px; letter-spacing: .035em; }
+    .hero-instruction .click-mark { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 12px #ddb45d; }
+    .presenter { margin: 23px 0 0; color: #d5c4a4; font-size: 12px; letter-spacing: .04em; }
+    .presenter span { color: #988a72; padding-right: 7px; }
+    .intro-copy {
+      position: absolute; z-index: 6; left: 50%; top: 65%; width: min(440px, 70%); transform: translate(-50%,-50%);
+      text-align: center; color: #d7c39c; opacity: 0; transition: opacity .8s ease;
+      font-size: 11px; letter-spacing: .2em; text-transform: uppercase; pointer-events: none;
+    }
+    .state-intro .intro-copy { opacity: .82; }
+    .skip-intro {
+      position: absolute; z-index: 9; right: 4.5%; bottom: calc(36px + var(--safe-bottom));
+      padding: 10px 15px; background: rgba(10,10,9,.6); border: 1px solid rgba(219,184,117,.3);
+      border-radius: 30px; color: #dfceb0; cursor: pointer; font-size: 11px; letter-spacing: .06em;
+    }
+    .state-topic .skip-intro, .state-plans .skip-intro, .state-content .skip-intro { display: none; }
+    .stage-note {
+      position: absolute; z-index: 4; top: 16%; left: 50%; transform: translateX(-50%);
+      color: #c7b590; opacity: 0; font-size: 10px; letter-spacing: .19em; text-transform: uppercase;
+      transition: opacity .4s ease; white-space: nowrap;
+    }
+    .state-plans .stage-note { opacity: .85; }
+    .content-panel {
+      position: absolute; z-index: 6; top: 50%; right: 6.7%; width: min(40%, 560px); max-height: 72%;
+      overflow: auto; transform: translate(28px,-47%); opacity: 0; pointer-events: none;
+      border: 1px solid rgba(220,185,119,.4); border-radius: 4px;
+      background: linear-gradient(145deg, rgba(24,23,20,.9), rgba(11,11,10,.9));
+      box-shadow: 0 24px 72px rgba(0,0,0,.5), inset 0 1px rgba(255,255,255,.035), 0 0 44px rgba(158,112,45,.1);
+      backdrop-filter: blur(19px); scrollbar-color: rgba(199,157,85,.58) rgba(12,12,11,.3);
+      transition: opacity .45s ease, transform .6s cubic-bezier(.18,.76,.25,1);
+    }
+    .state-content .content-panel { opacity: 1; transform: translate(0,-50%); pointer-events: auto; }
+    .panel-inner { padding: clamp(20px, 2.5vw, 34px); }
+    .panel-meta { display: flex; align-items: center; gap: 11px; margin: 0 0 14px; color: #d7b875; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }
+    .panel-meta::before { content: ""; width: 24px; height: 1px; background: #d7b875; }
+    .content-panel h2 { margin: 0; color: #f5ead4; font: 500 clamp(23px, 2.4vw, 34px)/1.12 "Playfair Display", Georgia, serif; text-wrap: balance; }
+    .panel-lead { margin: 13px 0 23px; color: #d5c6aa; font-size: clamp(13px, 1.1vw, 15px); line-height: 1.58; }
+    .panel-section { padding: 15px 0; border-top: 1px solid rgba(218,184,117,.17); }
+    .panel-section h3 { margin: 0 0 8px; color: #e3c98f; font-size: 11px; letter-spacing: .11em; text-transform: uppercase; }
+    .panel-section p { margin: 0; color: #ddd3c2; font-size: clamp(12px, 1vw, 14px); line-height: 1.62; }
+    .panel-section ul { margin: 8px 0 0; padding: 0 0 0 17px; color: #ddd3c2; font-size: clamp(12px, 1vw, 14px); line-height: 1.6; }
+    .panel-section li { padding: 2px 0 2px 3px; }
+    .panel-section li::marker { color: #c7a15e; }
+    .equation {
+      display: flex; align-items: center; justify-content: center; gap: clamp(7px, 1vw, 16px);
+      margin: 12px 0 2px; padding: 15px 10px; border-block: 1px solid rgba(218,184,117,.21);
+      color: #f1dfba; font: 500 clamp(12px, 1.25vw, 17px) "Playfair Display", Georgia, serif;
+      text-align: center;
+    }
+    .equation b { color: #d9b66e; font: 500 18px "DM Sans", sans-serif; }
+    .example-note { margin-top: 8px !important; color: #bfb39e !important; font-size: 11px !important; }
+    .takeaway { margin: 19px 0 2px; padding: 13px 15px; border-left: 2px solid #caa65f; background: rgba(192,146,65,.075); color: #efdbb4; font-size: 12px; line-height: 1.55; }
+    .takeaway strong { display: block; margin-bottom: 4px; color: #dbbd7b; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; }
+    .content-actions {
+      position: absolute; z-index: 7; left: 4.2%; top: 50%; display: flex; flex-direction: column; gap: 9px;
+      opacity: 0; transform: translate(-9px,-50%); pointer-events: none;
+      transition: opacity .3s ease, transform .4s ease;
+    }
+    .state-content .content-actions { opacity: 1; transform: translate(0,-50%); pointer-events: auto; }
+    .quiet-button {
+      min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border: 1px solid rgba(218,184,117,.28); border-radius: 3px; background: rgba(11,11,10,.68);
+      color: #dfcfaf; cursor: pointer; backdrop-filter: blur(12px); transition: background .2s, border-color .2s;
+    }
+    .quiet-button:hover { background: rgba(105,78,38,.34); border-color: rgba(225,188,113,.68); }
+    .quiet-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .quiet-button .button-label { padding-right: 12px; font-size: 10px; letter-spacing: .04em; }
+    .bottom-bar {
+      position: absolute; z-index: 8; left: 4.2%; right: 4.2%; bottom: calc(23px + var(--safe-bottom));
+      display: flex; align-items: center; justify-content: space-between; gap: 22px;
+      opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .35s ease, transform .4s ease;
+    }
+    .state-plans .bottom-bar, .state-content .bottom-bar { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .bottom-left, .bottom-right { display: flex; align-items: center; gap: 10px; }
+    .bottom-left { min-width: 175px; }
+    .bottom-right { justify-content: flex-end; min-width: 175px; }
+    .stage-home { display: none; width: 38px; height: 38px; min-width: 38px; }
+    .state-plans .stage-home { display: inline-flex; }
+    .step-button { width: 38px; height: 38px; min-width: 38px; }
+    .current-index { color: #e3c684; font: 500 14px "Playfair Display", Georgia, serif; white-space: nowrap; }
+    .current-index small { color: #827866; font: 400 10px "DM Sans", sans-serif; }
+    .progress-track { width: min(12vw, 150px); height: 2px; background: rgba(224,196,144,.19); }
+    .progress-fill { height: 100%; width: 0; background: #d6b36d; box-shadow: 0 0 12px rgba(222,179,95,.6); transition: width .35s ease; }
+    .plan-index-nav { display: flex; gap: 7px; align-items: center; }
+    .index-button {
+      width: 38px; height: 38px; border: 1px solid rgba(225,195,135,.25); border-radius: 50%;
+      background: rgba(12,12,11,.65); color: #a89d88; font-size: 10px; cursor: pointer;
+      transition: all .2s ease;
+    }
+    .index-button:hover { border-color: rgba(225,195,135,.7); color: #f1dfba; }
+    .index-button[aria-current="step"] { color: #f3d894; border-color: #c9a65f; box-shadow: 0 0 19px rgba(194,148,67,.18); }
+    .key-hint { color: #857b69; font-size: 9px; letter-spacing: .04em; white-space: nowrap; }
+    .loading {
+      position: absolute; z-index: 20; inset: 0; display: grid; place-items: center;
+      background: #080807; transition: opacity .7s ease, visibility .7s ease;
+    }
+    .loading.is-ready { opacity: 0; visibility: hidden; }
+    .loading-mark { width: 47px; height: 47px; border: 1px solid rgba(210,172,103,.2); border-top-color: #d5b16a; border-radius: 50%; animation: turn 1.2s linear infinite; box-shadow: 0 0 28px rgba(200,148,56,.11); }
+    .loading-label { position: absolute; margin-top: 78px; color: #988b74; font-size: 9px; letter-spacing: .24em; }
+    @keyframes turn { to { transform: rotate(360deg); } }
+    .error-note {
+      position: absolute; z-index: 10; top: 17%; left: 50%; transform: translateX(-50%);
+      display: none; max-width: 80%; padding: 9px 13px; border: 1px solid rgba(218,184,117,.25);
+      border-radius: 2px; background: rgba(8,8,7,.7); color: #bfb29a; font-size: 10px; text-align: center;
+    }
+    .webgl-fallback .error-note { display: block; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    @media (max-width: 900px) {
+      .content-panel { right: 4.5%; width: min(45%, 500px); max-height: 69%; }
+      .content-actions { left: 3%; }
+      .key-hint { display: none; }
+    }
+    @media (max-aspect-ratio: 4/5) {
+      .stage { width: 100vw; height: 100svh; min-height: 560px; border: 0; }
+      .stage::after { inset: 8px; }
+      .topbar { top: calc(17px + var(--safe-top)); left: 6%; right: 6%; }
+      .brand-mark { width: 35px; height: 35px; }
+      .brand-copy span { display: none; }
+      .hero { width: 84%; top: 42%; }
+      .topic-launch h1 { font-size: clamp(34px, 9vw, 50px); }
+      .hero-kicker { font-size: 9px; letter-spacing: .2em; }
+      .presenter { font-size: 11px; }
+      .stage-note { top: 17%; max-width: 78%; white-space: normal; text-align: center; line-height: 1.5; }
+      .content-panel { top: auto; left: 5%; right: 5%; bottom: calc(92px + var(--safe-bottom)); width: auto; max-height: 48%; transform: translateY(15px); }
+      .state-content .content-panel { transform: translateY(0); }
+      .panel-inner { padding: 19px 20px; }
+      .content-panel h2 { font-size: clamp(22px, 6vw, 30px); }
+      .panel-lead { margin-bottom: 16px; }
+      .content-actions { top: auto; bottom: calc(91px + var(--safe-bottom)); left: 6%; flex-direction: row; transform: translateY(8px); }
+      .state-content .content-actions { transform: translateY(0); }
+      .quiet-button .button-label { display: none; }
+      .bottom-bar { left: 6%; right: 6%; bottom: calc(23px + var(--safe-bottom)); gap: 9px; }
+      .bottom-left, .bottom-right { min-width: auto; }
+      .bottom-left { gap: 7px; }
+      .stage-home, .step-button { width: 34px; height: 34px; min-width: 34px; }
+      .progress-track { width: 38px; }
+      .current-index { font-size: 12px; }
+      .current-index small { font-size: 9px; }
+      .index-button { width: 34px; height: 34px; }
+      .fallback-plan { width: 42%; min-height: 85px; padding: 11px; }
+      .fallback-plan:nth-child(1) { left: 25%; top: 25%; }
+      .fallback-plan:nth-child(2) { left: 75%; top: 40%; }
+      .fallback-plan:nth-child(3) { left: 50%; top: 57%; }
+      .fallback-plan strong { font-size: 12px; }
+      .error-note { top: 12%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage state-intro" id="stage" aria-label="Biznesda buxgalteriya hisobi bo‘yicha interaktiv taqdimot">
+    <canvas id="scene" aria-hidden="true"></canvas>
+    <div class="scene-fallback" aria-hidden="true"></div>
+    <div class="ambient-grain" aria-hidden="true"></div>
+    <div class="loading" id="loading" role="status" aria-label="Taqdimot yuklanmoqda">
+      <span class="loading-mark" aria-hidden="true"></span><span class="loading-label">TAQDIMOT TAYYORLANMOQDA</span>
+    </div>
+    <div class="error-note" role="status">3D ko‘rinish ushbu qurilmada ochilmadi. Taqdimotni reja tugmalari orqali davom ettirishingiz mumkin.</div>
+
+    <header class="topbar">
+      <div class="brand" aria-label="Biznes hisobi interaktiv ma’ruzasi">
+        <span class="brand-mark" aria-hidden="true">BH</span>
+        <span class="brand-copy"><strong>BIZNESDA HISOB</strong><span>INTERAKTIV MA’RUZA</span></span>
+      </div>
+      <div class="top-actions" aria-label="Taqdimot boshqaruvlari">
+        <button class="icon-button" id="pauseButton" type="button" aria-label="Animatsiyani to‘xtatish" aria-pressed="false" title="Animatsiyani to‘xtatish">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>
+        </button>
+        <button class="icon-button" id="soundButton" type="button" aria-label="Ovozni yoqish" aria-pressed="false" title="Ovoz sukut bo‘yicha o‘chiq">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Z"/><path d="m17 9 4 6m0-6-4 6"/></svg>
+        </button>
+        <button class="icon-button" id="fullscreenButton" type="button" aria-label="To‘liq ekran rejimiga o‘tish" title="To‘liq ekran">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="stage-note" id="stageNote" aria-live="polite">Markazdagi mavzu atrofida aylanuvchi rejadan birini tanlang</div>
+    <div class="intro-copy" aria-hidden="true">Hisob. Muvozanat. Qaror.</div>
+
+    <section class="hero" id="hero" aria-label="Ma’ruza mavzusi" inert>
+      <p class="hero-kicker">Biznesda buxgalteriya hisobi fanidan</p>
+      <button class="topic-launch" id="topicLaunch" type="button" aria-label="Mavzuni ochib, uchta rejani ko‘rsatish">
+        <h1>Biznesda<br>buxgalteriya hisobi</h1>
+      </button>
+      <p class="hero-instruction"><span class="click-mark" aria-hidden="true"></span>Mavzuni tanlang va ma’ruzani boshlang</p>
+      <p class="presenter"><span>Bajaruvchi</span>Ishmuratov Diyorbek Ibratovich</p>
+    </section>
+
+    <button class="skip-intro" id="skipIntro" type="button">Kirishni o‘tkazib yuborish</button>
+    <nav class="fallback-orbit" id="fallbackOrbit" aria-label="Ma’ruza rejalari" hidden>
+      <button class="fallback-plan" data-plan="0" type="button"><span>REJA 01</span><strong>Buxgalteriya hisobining mohiyati</strong></button>
+      <button class="fallback-plan" data-plan="1" type="button"><span>REJA 02</span><strong>Operatsiyalar va moliyaviy hisobotlar</strong></button>
+      <button class="fallback-plan" data-plan="2" type="button"><span>REJA 03</span><strong>Hisob, nazorat va boshqaruv qarorlari</strong></button>
+    </nav>
+
+    <section class="content-panel" id="contentPanel" aria-labelledby="panelTitle" aria-live="polite">
+      <div class="panel-inner" id="panelInner"></div>
+    </section>
+    <div class="content-actions" aria-label="Bo‘lim boshqaruvlari" inert>
+      <button class="quiet-button" id="backButton" type="button" aria-label="Rejalar ko‘rinishiga qaytish" title="Rejalarga qaytish">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m7 7-7-7 7-7"/></svg><span class="button-label">Rejalarga</span>
+      </button>
+      <button class="quiet-button" id="homeButton" type="button" aria-label="Mavzu sahifasiga qaytish" title="Mavzuga qaytish">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7v9h-6v-6h-4v6H4z"/></svg><span class="button-label">Mavzuga</span>
+      </button>
+    </div>
+
+    <footer class="bottom-bar" inert>
+      <div class="bottom-left">
+        <button class="quiet-button stage-home" id="stageHome" type="button" aria-label="Mavzu sahifasiga qaytish" title="Mavzuga qaytish">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7v9h-6v-6h-4v6H4z"/></svg>
+        </button>
+        <span class="current-index" id="currentIndex"><span id="indexValue">01</span><small> / 03</small></span>
+        <div class="progress-track" id="progressTrack" role="progressbar" aria-label="Ma’ruza bo‘yicha holat" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+      <nav class="plan-index-nav" aria-label="Rejani tanlash">
+        <button class="index-button" data-plan="0" type="button" aria-label="1-reja: Buxgalteriya hisobining mohiyati" aria-current="step">01</button>
+        <button class="index-button" data-plan="1" type="button" aria-label="2-reja: Biznes operatsiyalari va hisobotlar">02</button>
+        <button class="index-button" data-plan="2" type="button" aria-label="3-reja: Hisobni tashkil etish va boshqaruv">03</button>
+      </nav>
+      <div class="bottom-right">
+        <button class="quiet-button step-button" id="previousPlan" type="button" aria-label="Oldingi reja" title="Oldingi reja"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m7 7-7-7 7-7"/></svg></button>
+        <button class="quiet-button step-button" id="nextPlan" type="button" aria-label="Keyingi reja" title="Keyingi reja"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></button>
+        <span class="key-hint">← → reja &nbsp; · &nbsp; Enter ochish &nbsp; · &nbsp; Esc qaytish</span>
+      </div>
+    </footer>
+    <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+  </main>
+
+  <script type="module">
+    const stage = document.getElementById("stage");
+    const loading = document.getElementById("loading");
+    const liveRegion = document.getElementById("liveRegion");
+    const panelInner = document.getElementById("panelInner");
+    const fallbackOrbit = document.getElementById("fallbackOrbit");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const plans = [
+      {
+        title: "Buxgalteriya hisobining mohiyati va asosiy tamoyillari",
+        lead: "Buxgalteriya hisobi — korxona resurslari va ularning o‘zgarishini hujjatlar asosida qayd etib, tushunarli moliyaviy axborotga aylantirish tizimi.",
+        sections: [
+          { heading: "Hisob nimani ko‘rsatadi?", text: "Korxona nimalarga egaligi, kimlardan qarzdorligi, egalarning ulushi, qancha daromad topgani va xarajat qilganini izchil qayd etadi. Rahbar, investor, bank va boshqa manfaatdor tomonlar shu ma’lumotdan foydalanadi." },
+          { heading: "Hisobning asosiy tengligi", equation: ["Aktivlar", "Majburiyatlar", "Xususiy kapital"], text: "Tenglik har bir xo‘jalik operatsiyasidan keyin saqlanadi. Masalan, korxona bankdan qarz olsa, pul mablag‘i ham, majburiyati ham bir xil miqdorda ortadi." },
+          { heading: "Muhim tamoyillar", list: ["To‘liqlik: muhim operatsiyalar hisobdan chetda qolmaydi.", "Hujjatlilik: yozuvni hisob-faktura, to‘lov yoki boshqa dalil tasdiqlaydi.", "Davriylik: natijalar belgilangan hisobot davrlari bo‘yicha jamlanadi.", "Hisoblash usuli: daromad va xarajat pul kelgan paytga emas, ular yuzaga kelgan davrga yoziladi."] },
+          { heading: "Amaliy misol", text: "Do‘kon 8 000 000 so‘mlik mahsulotni yetkazib beruvchidan muddatli to‘lov bilan oldi. Mahsulot zaxirasi ham, yetkazib beruvchiga qarz ham 8 000 000 so‘mga oshadi." }
+        ],
+        takeaway: "Hisobning vazifasi faqat pulni sanash emas — biznes holatini dalillarga asoslanib ko‘rsatish."
+      },
+      {
+        title: "Biznes operatsiyalarini hisobga olish va moliyaviy hisobotlar",
+        lead: "Har bir xo‘jalik operatsiyasi korxonaning kamida ikki ko‘rsatkichiga ta’sir qiladi. Ikkiyoqlama yozuv shu bog‘liqlikni aniq qayd etadi.",
+        sections: [
+          { heading: "Ikkiyoqlama yozuv", text: "Operatsiyaning debet va kredit tomonlari teng summada yoziladi. Masalan, korxona 10 000 000 so‘mlik mahsulotni naqd pulga olib, keyin uni naqd pulga 14 000 000 so‘mga sotdi. Tannarx 10 000 000 so‘m bo‘lsa, boshqa xarajatlar va soliqlardan oldingi yalpi foyda 4 000 000 so‘m bo‘ladi." },
+          { heading: "Operatsiya qanday yoziladi?", list: ["Mahsulot xaridi: zaxira +10 mln, pul mablag‘i −10 mln.", "Sotuv: pul mablag‘i +14 mln, sotuv daromadi +14 mln.", "Sotilgan mahsulot tannarxi: xarajat +10 mln, zaxira −10 mln.", "Natija: daromad 14 mln − tannarx 10 mln = yalpi foyda 4 mln so‘m." ], note: "Summalar o‘quv misoli uchun keltirilgan; ijara, ish haqi, soliq va boshqa xarajatlar hisobga olinmagan." },
+          { heading: "Uch asosiy hisobot", list: ["Moliyaviy holat to‘g‘risidagi hisobot: aktivlar, majburiyatlar va kapitalni ko‘rsatadi.", "Foyda yoki zarar to‘g‘risidagi hisobot: davr daromadlari va xarajatlarini taqqoslaydi.", "Pul oqimlari to‘g‘risidagi hisobot: pulning qayerdan kelgani va qayerga sarflanganini ko‘rsatadi."] },
+          { heading: "Foyda va pul oqimi", text: "Sotuv qarzga amalga oshirilsa, daromad qayd etiladi, lekin pul keyin kelishi mumkin. Shu sababli foyda borligi korxonada ayni paytda yetarli naqd pul borligini anglatmaydi." }
+        ],
+        takeaway: "Ikkiyoqlama yozuv nazoratni kuchaytiradi; hisobotlar esa foyda, moliyaviy holat va pulni alohida ko‘rsatadi."
+      },
+      {
+        title: "Hisobni tashkil etish, ichki nazorat va boshqaruv qarorlari",
+        lead: "Ishonchli hisobot muntazam jarayondan boshlanadi: hujjat olinadi, operatsiya tekshiriladi, yozuv kiritiladi va natija o‘zaro solishtiriladi.",
+        sections: [
+          { heading: "Hisob jarayoni", list: ["Birlamchi hujjatlarni yig‘ish va tekshirish.", "Operatsiyani hisobvaraqlarga tasniflash.", "Jurnal va bosh kitobda qayd etish.", "Bank, kassa, zaxira va qarzdorlik qoldiqlarini solishtirish.", "Davr yakunida hisobot tuzish va rahbariyatga taqdim etish."] },
+          { heading: "Ichki nazorat", text: "Vazifalarni xodimlar o‘rtasida taqsimlash, to‘lovlarni tasdiqlash va hujjatlarni saqlash xatolar hamda ruxsatsiz o‘zgarishlar xavfini kamaytiradi. Bank ko‘chirmalarini hisob yozuvlari bilan muntazam solishtirish amaliy nazorat usulidir." },
+          { heading: "Ma’lumot qanday qarorga yordam beradi?", text: "Mahsulotlar kesimida tannarx va marjani taqqoslash narx yoki assortimentni qayta ko‘rib chiqishga yordam beradi. Debitorlik muddatlarini kuzatish pul tushumini rejalashtiradi. Xarajatlar rejasini haqiqiy natija bilan solishtirish esa chetlanish sababini ko‘rsatadi." },
+          { heading: "Raqamli hisob", text: "Buxgalteriya dasturi hujjat kiritish, to‘lovlarni kuzatish va hisobot tayyorlashni tezlashtirishi mumkin. Biroq aniq ma’lumot, kirish huquqlarini boshqarish, zaxira nusxasi va inson nazorati baribir zarur." }
+        ],
+        takeaway: "Tartibli hisob va ichki nazorat rahbarga kechikkan taxminlar emas, vaqtida tekshirilgan ma’lumot bilan qaror qilish imkonini beradi."
+      }
+    ];
+    let currentPlan = 0;
+    let currentState = "intro";
+    let paused = reducedMotion;
+    let soundEnabled = false;
+    let audioContext = null;
+    let sceneApi = null;
+    let introTimer = 0;
+
+    function renderPlan(index) {
+      const plan = plans[index];
+      const sectionMarkup = plan.sections.map(function(section) {
+        let body = "";
+        if (section.equation) {
+          body = '<div class="equation"><span>' + section.equation[0] + '</span><b>=</b><span>' + section.equation[1] + '</span><b>+</b><span>' + section.equation[2] + '</span></div>';
+          if (section.text) body += '<p>' + section.text + '</p>';
+        } else if (section.list) {
+          body = "<ul>" + section.list.map(function(item) { return "<li>" + item + "</li>"; }).join("") + "</ul>";
+          if (section.note) body += '<p class="example-note">' + section.note + "</p>";
+        } else {
+          body = "<p>" + section.text + "</p>";
+        }
+        return '<section class="panel-section"><h3>' + section.heading + "</h3>" + body + "</section>";
+      }).join("");
+      panelInner.innerHTML = '<p class="panel-meta">REJA ' + String(index + 1).padStart(2, "0") + ' / 03</p><h2 id="panelTitle">' + plan.title + '</h2><p class="panel-lead">' + plan.lead + "</p>" + sectionMarkup + '<p class="takeaway"><strong>Asosiy xulosa</strong>' + plan.takeaway + "</p>";
+      document.getElementById("indexValue").textContent = String(index + 1).padStart(2, "0");
+      document.getElementById("progressFill").style.width = ((index + 1) / plans.length * 100) + "%";
+      document.getElementById("progressTrack").setAttribute("aria-valuenow", String(index + 1));
+      document.querySelectorAll(".index-button").forEach(function(button) {
+        if (Number(button.dataset.plan) === index) button.setAttribute("aria-current", "step");
+        else button.removeAttribute("aria-current");
+      });
+    }
+
+    function setState(nextState) {
+      currentState = nextState;
+      stage.classList.remove("state-intro", "state-topic", "state-plans", "state-content");
+      stage.classList.add("state-" + nextState);
+      fallbackOrbit.hidden = !(nextState === "plans" || nextState === "content");
+      document.getElementById("hero").inert = nextState !== "topic";
+      document.querySelector(".content-actions").inert = nextState !== "content";
+      document.querySelector(".bottom-bar").inert = nextState !== "plans" && nextState !== "content";
+      if (sceneApi) sceneApi.setMode(nextState, currentPlan);
+      if (nextState === "plans") {
+        document.getElementById("stageNote").textContent = "Markazdagi mavzu atrofida aylanuvchi rejadan birini tanlang";
+        liveRegion.textContent = "Uchta reja ko‘rsatildi. Rejani tanlang.";
+      } else if (nextState === "topic") {
+        liveRegion.textContent = "Ma’ruza mavzusi. Boshlash uchun mavzu nomini tanlang.";
+      }
+    }
+
+    function openPlans() {
+      if (currentState !== "topic") return;
+      playCue(523, .11);
+      setState("plans");
+    }
+    function openPlan(index) {
+      currentPlan = (index + plans.length) % plans.length;
+      renderPlan(currentPlan);
+      if (sceneApi) sceneApi.setSelected(currentPlan);
+      setState("content");
+      playCue(392 + currentPlan * 65, .09);
+      liveRegion.textContent = (currentPlan + 1) + "-reja ochildi: " + plans[currentPlan].title;
+    }
+    function returnToPlans() { setState("plans"); }
+    function returnHome() { setState("topic"); }
+    function skipIntro() {
+      window.clearTimeout(introTimer);
+      setState("topic");
+      loading.classList.add("is-ready");
+      if (sceneApi) sceneApi.skipIntro();
+    }
+    function togglePause() {
+      paused = !paused;
+      document.getElementById("pauseButton").setAttribute("aria-pressed", String(paused));
+      document.getElementById("pauseButton").setAttribute("aria-label", paused ? "Animatsiyani davom ettirish" : "Animatsiyani to‘xtatish");
+      document.getElementById("pauseButton").title = paused ? "Animatsiyani davom ettirish" : "Animatsiyani to‘xtatish";
+      document.getElementById("pauseButton").innerHTML = paused
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>';
+      if (sceneApi) sceneApi.setPaused(paused);
+      liveRegion.textContent = paused ? "Animatsiya to‘xtatildi." : "Animatsiya davom etmoqda.";
+    }
+    function playCue(frequency, duration) {
+      if (!soundEnabled) return;
+      try {
+        audioContext = audioContext || new window.AudioContext();
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(frequency * .72, audioContext.currentTime + duration);
+        gain.gain.setValueAtTime(.0001, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(.035, audioContext.currentTime + .018);
+        gain.gain.exponentialRampToValueAtTime(.0001, audioContext.currentTime + duration);
+        oscillator.connect(gain).connect(audioContext.destination);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + duration + .02);
+      } catch (error) { /* audio remains optional */ }
+    }
+
+    document.getElementById("topicLaunch").addEventListener("click", openPlans);
+    document.getElementById("skipIntro").addEventListener("click", skipIntro);
+    document.getElementById("backButton").addEventListener("click", returnToPlans);
+    document.getElementById("homeButton").addEventListener("click", returnHome);
+    document.getElementById("stageHome").addEventListener("click", returnHome);
+    document.getElementById("previousPlan").addEventListener("click", function() { openPlan(currentPlan - 1); });
+    document.getElementById("nextPlan").addEventListener("click", function() { openPlan(currentPlan + 1); });
+    document.getElementById("pauseButton").addEventListener("click", togglePause);
+    document.querySelectorAll("[data-plan]").forEach(function(button) {
+      button.addEventListener("click", function() { openPlan(Number(button.dataset.plan)); });
+    });
+    document.getElementById("soundButton").addEventListener("click", function() {
+      soundEnabled = !soundEnabled;
+      const button = document.getElementById("soundButton");
+      button.setAttribute("aria-pressed", String(soundEnabled));
+      button.setAttribute("aria-label", soundEnabled ? "Ovozni o‘chirish" : "Ovozni yoqish");
+      button.title = soundEnabled ? "Ovoz yoqilgan" : "Ovoz sukut bo‘yicha o‘chiq";
+      button.innerHTML = soundEnabled
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Z"/><path d="M16 9a5 5 0 0 1 0 6m2-9a9 9 0 0 1 0 12"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Z"/><path d="m17 9 4 6m0-6-4 6"/></svg>';
+      if (soundEnabled) playCue(587, .12);
+    });
+    document.getElementById("fullscreenButton").addEventListener("click", async function() {
+      try {
+        if (!document.fullscreenElement) await stage.requestFullscreen();
+        else await document.exitFullscreen();
+      } catch (error) { liveRegion.textContent = "To‘liq ekran rejimini bu brauzer qo‘llamaydi."; }
+    });
+    document.addEventListener("keydown", function(event) {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const tag = event.target && event.target.tagName;
+      if (tag === "BUTTON" && (event.key === " " || event.key === "Enter")) return;
+      if (event.key === "Escape") {
+        if (currentState === "content") returnToPlans();
+        else if (currentState === "plans") returnHome();
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        if (currentState === "topic") openPlans();
+        else if (currentState === "plans" || currentState === "content") openPlan(currentPlan + 1);
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        if (currentState === "content") openPlan(currentPlan - 1);
+        else if (currentState === "plans") openPlan(currentPlan - 1);
+      } else if ((event.key === "Enter" || event.key === " ") && currentState === "plans") {
+        event.preventDefault(); openPlan(currentPlan);
+      } else if (event.key.toLowerCase() === "p") {
+        togglePause();
+      }
+    });
+
+    const canvas = document.getElementById("scene");
+    async function initThree() {
+      const THREE = await import("three");
+      const { Reflector } = await import("three/addons/objects/Reflector.js");
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x080807);
+      scene.fog = new THREE.FogExp2(0x080807, .026);
+      const camera = new THREE.PerspectiveCamera(39, stage.clientWidth / stage.clientHeight, .1, 100);
+      camera.position.set(0, 5.0, 15.6);
+      camera.lookAt(0, 1.35, 0);
+      const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: false, antialias: true, powerPreference: "high-performance" });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+      renderer.setSize(stage.clientWidth, stage.clientHeight, false);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.18;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      const ambient = new THREE.HemisphereLight(0x8c8069, 0x17130d, 1.15);
+      scene.add(ambient);
+      const keyLight = new THREE.SpotLight(0xf6d99d, 180, 38, Math.PI / 5, .48, 1.6);
+      keyLight.position.set(-3.5, 10, 7); keyLight.castShadow = true; keyLight.shadow.mapSize.set(1024,1024); keyLight.target.position.set(0,1,0);
+      scene.add(keyLight, keyLight.target);
+      const doorLight = new THREE.PointLight(0xffc86d, 35, 15, 1.7);
+      doorLight.position.set(0,3.3,-4.1); scene.add(doorLight);
+      const rimLight = new THREE.PointLight(0x98723c, 17, 18, 2);
+      rimLight.position.set(5,2,4); scene.add(rimLight);
+
+      const gold = new THREE.MeshPhysicalMaterial({ color: 0x9a7137, metalness: .93, roughness: .24, clearcoat: .72, clearcoatRoughness: .22 });
+      const brightGold = new THREE.MeshPhysicalMaterial({ color: 0xe1bd72, metalness: .86, roughness: .18, clearcoat: 1 });
+      const darkMetal = new THREE.MeshPhysicalMaterial({ color: 0x171612, metalness: .84, roughness: .3, clearcoat: .55 });
+      const orbMat = new THREE.MeshPhysicalMaterial({ color: 0x4a3820, metalness: .78, roughness: .2, clearcoat: 1, clearcoatRoughness: .13 });
+
+      const floorUniforms = { uTime: { value: 0 }, uImpact: { value: 2.8 } };
+      const floorMat = new THREE.ShaderMaterial({
+        uniforms: floorUniforms,
+        vertexShader: "uniform float uTime; varying vec2 vP; varying float vWave; void main(){ vec3 p=position; float d=length(p.xy); float w=sin(d*3.8-uTime*2.4)*exp(-d*.42); p.z += w*.026; vP=p.xy; vWave=w; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }",
+        fragmentShader: "uniform float uTime; uniform float uImpact; varying vec2 vP; varying float vWave; void main(){ float d=length(vP); float ring=sin(d*23.0-uTime*3.0)*exp(-abs(d-uImpact)*.82); float fine=sin(vP.x*6.0+sin(vP.y*4.0+uTime))*cos(vP.y*5.0-uTime*.8); float shine=max(0.0,ring*.5+vWave*.28+fine*.035); vec3 base=vec3(.012,.013,.012); vec3 gold=vec3(.28,.205,.092); gl_FragColor=vec4(base+gold*shine,.52+clamp(shine*.45,0.0,.35)); }",
+        transparent: true, depthWrite: false
+      });
+      const reflector = new Reflector(new THREE.PlaneGeometry(80,80), {
+        clipBias: .003, textureWidth: 512, textureHeight: 512, color: 0x382f1d
+      });
+      reflector.rotation.x = -Math.PI / 2; reflector.position.y = -.055; scene.add(reflector);
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(80,80,1,1), floorMat);
+      floor.rotation.x = -Math.PI / 2; floor.position.y = -.035; floor.receiveShadow = true; scene.add(floor);
+      const renderReflection = reflector.onBeforeRender.bind(reflector);
+      reflector.onBeforeRender = function(activeRenderer, activeScene, activeCamera) {
+        floor.visible = false;
+        renderReflection(activeRenderer, activeScene, activeCamera);
+        floor.visible = true;
+      };
+
+      const platform = new THREE.Group(); platform.position.y = .1; scene.add(platform);
+      const plinth = new THREE.Mesh(new THREE.CylinderGeometry(2.05,2.28,.31,96), darkMetal);
+      plinth.position.y = .17; plinth.castShadow = true; plinth.receiveShadow = true; platform.add(plinth);
+      const lip = new THREE.Mesh(new THREE.TorusGeometry(2.08,.045,12,96), brightGold); lip.rotation.x = Math.PI/2; lip.position.y=.34; platform.add(lip);
+      const innerLip = new THREE.Mesh(new THREE.TorusGeometry(1.82,.018,8,96), gold); innerLip.rotation.x=Math.PI/2; innerLip.position.y=.355; platform.add(innerLip);
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(.92,1.08,.55,64), gold); pedestal.position.y=.59; pedestal.castShadow=true; platform.add(pedestal);
+      const baseGlow = new THREE.PointLight(0xdcae55, 12, 6, 2); baseGlow.position.set(0,.55,0); platform.add(baseGlow);
+
+      const orbGroup = new THREE.Group(); orbGroup.position.set(0,1.73,0); scene.add(orbGroup);
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(1.12,72,64), orbMat); orb.castShadow=true; orb.receiveShadow=true; orbGroup.add(orb);
+      const orbRim = new THREE.Mesh(new THREE.TorusGeometry(1.17,.022,10,96), brightGold); orbGroup.add(orbRim);
+      const orbitHalo = new THREE.Mesh(new THREE.TorusGeometry(1.55,.012,8,128), brightGold);
+      orbitHalo.rotation.set(Math.PI*.38, 0, Math.PI*.08); orbGroup.add(orbitHalo);
+      const inset = new THREE.Mesh(new THREE.TorusGeometry(.83,.012,8,96), gold);
+      inset.rotation.set(Math.PI*.55, 0, Math.PI*.28); orbGroup.add(inset);
+      const orbLamp = new THREE.PointLight(0xd9aa50, 7, 5, 2); orbLamp.position.set(-.7,.8,1.15); orbGroup.add(orbLamp);
+
+      const doorSet = [];
+      for (let side = -1; side <= 1; side += 2) {
+        const hinge = new THREE.Group();
+        hinge.position.set(side * 3.6, 2.1, -5.1);
+        const slab = new THREE.Mesh(new THREE.BoxGeometry(3.25,4.55,.34), darkMetal);
+        slab.position.x = side * 1.625; slab.castShadow = true; slab.receiveShadow = true; hinge.add(slab);
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(2.85,4.14,.1), gold);
+        panel.position.set(side*1.625,.02,side > 0 ? .21 : -.21); hinge.add(panel);
+        const insetPanel = new THREE.Mesh(new THREE.BoxGeometry(2.54,3.82,.08), darkMetal);
+        insetPanel.position.set(side*1.625,.02,side > 0 ? .28 : -.28); hinge.add(insetPanel);
+        const trimTop = new THREE.Mesh(new THREE.BoxGeometry(2.94,.07,.12), brightGold);
+        trimTop.position.set(side*1.625,1.97,.34); hinge.add(trimTop);
+        const trimBottom = trimTop.clone(); trimBottom.position.y=-1.94; hinge.add(trimBottom);
+        scene.add(hinge); doorSet.push({ hinge: hinge, side: side });
+      }
+      const portal = new THREE.Mesh(new THREE.TorusGeometry(2.7,.085,16,96), gold);
+      portal.position.set(0,2.2,-5.13); scene.add(portal);
+      const portalTop = new THREE.Mesh(new THREE.BoxGeometry(7.5,.18,.34), brightGold);
+      portalTop.position.set(0,4.52,-5.05); scene.add(portalTop);
+
+      const splashRing = new THREE.Mesh(new THREE.TorusGeometry(.83,.095,24,112), brightGold);
+      splashRing.position.set(0,5.4,-.1); splashRing.rotation.x=Math.PI/2; splashRing.castShadow=true; scene.add(splashRing);
+      const impactRings = [];
+      for (let i=0;i<4;i++) {
+        const material = new THREE.MeshBasicMaterial({ color: 0xd7ad5d, transparent: true, opacity: .48-i*.085, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(new THREE.RingGeometry(.88+i*.18,.91+i*.18,112), material);
+        ring.rotation.x=-Math.PI/2; ring.position.y=.04+i*.002; scene.add(ring); impactRings.push(ring);
+      }
+      const droplets = [];
+      const dropletMat = new THREE.MeshPhysicalMaterial({ color:0xd8c9ac, metalness:.08, roughness:.045, transmission:.78, thickness:.24, clearcoat:1, transparent:true, opacity:.78 });
+      for (let i=0;i<28;i++) {
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(.035+Math.random()*.045,12,12), dropletMat);
+        mesh.visible=false; scene.add(mesh);
+        droplets.push({ mesh:mesh, angle:Math.random()*Math.PI*2, speed:1.1+Math.random()*2.4, height:1.1+Math.random()*2.4, size:.65+Math.random()*.8 });
+      }
+      const particleGeometry = new THREE.BufferGeometry();
+      const particleCount = 420;
+      const particlePositions = new Float32Array(particleCount*3);
+      for(let i=0;i<particleCount;i++){
+        const radius=5+Math.random()*24, angle=Math.random()*Math.PI*2;
+        particlePositions[i*3]=Math.cos(angle)*radius;
+        particlePositions[i*3+1]=1+Math.random()*13;
+        particlePositions[i*3+2]=Math.sin(angle)*radius-3;
+      }
+      particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions,3));
+      const particleMat = new THREE.PointsMaterial({ color:0xc3a15e, size:.035, transparent:true, opacity:.56, sizeAttenuation:true });
+      const particles = new THREE.Points(particleGeometry,particleMat); scene.add(particles);
+
+      function cardTexture(index) {
+        const cardCanvas=document.createElement("canvas"); cardCanvas.width=640; cardCanvas.height=440;
+        const ctx=cardCanvas.getContext("2d");
+        const gradient=ctx.createLinearGradient(0,0,640,440);
+        gradient.addColorStop(0,"#252116"); gradient.addColorStop(.52,"#171611"); gradient.addColorStop(1,"#0c0c0b");
+        ctx.fillStyle=gradient; ctx.fillRect(0,0,640,440);
+        ctx.strokeStyle="rgba(224,187,111,.76)"; ctx.lineWidth=2; ctx.strokeRect(15,15,610,410);
+        ctx.strokeStyle="rgba(224,187,111,.2)"; ctx.lineWidth=1; ctx.strokeRect(26,26,588,388);
+        ctx.fillStyle="#d8b66e"; ctx.font="600 22px 'DM Sans', sans-serif"; ctx.letterSpacing="5px";
+        ctx.fillText("REJA  "+String(index+1).padStart(2,"0"),48,73);
+        ctx.fillStyle="rgba(213,177,105,.6)"; ctx.fillRect(48,96,52,2);
+        ctx.fillStyle="#f3e7d0"; ctx.font="500 43px 'Playfair Display', Georgia, serif";
+        const words=plans[index].title.split(" "); let lines=[]; let line="";
+        words.forEach(function(word){ const test=line ? line+" "+word : word; if(ctx.measureText(test).width>535 && line){lines.push(line);line=word;}else line=test; });
+        if(line) lines.push(line);
+        lines.slice(0,4).forEach(function(text,i){ctx.fillText(text,48,165+i*55);});
+        ctx.fillStyle="rgba(219,184,112,.74)"; ctx.beginPath(); ctx.arc(574,366,7,0,Math.PI*2); ctx.fill();
+        const texture=new THREE.CanvasTexture(cardCanvas); texture.colorSpace=THREE.SRGBColorSpace; texture.anisotropy=4;
+        return texture;
+      }
+      const cards=[];
+      plans.forEach(function(plan,index){
+        const group=new THREE.Group();
+        const body=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.65,.16),new THREE.MeshPhysicalMaterial({color:0xa77d3d,metalness:.88,roughness:.25,clearcoat:.55}));
+        body.castShadow=true; body.receiveShadow=true; group.add(body);
+        const face=new THREE.Mesh(new THREE.PlaneGeometry(2.32,1.57),new THREE.MeshBasicMaterial({map:cardTexture(index)}));
+        face.position.z=.088; group.add(face);
+        const glow=new THREE.PointLight(0xd7ae66,1.25,3.2,2); glow.position.set(0,0,.5); group.add(glow);
+        group.userData.planIndex=index; group.visible=false; scene.add(group); cards.push(group);
+      });
+
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      let pointerDown=null, dragged=false, mode="intro", selected=0, orbitOffset=0, elapsed=0, selectedAt=0, pausedLocal=paused;
+      let impact=0, lastTime=performance.now();
+      function resize() {
+        const width=stage.clientWidth, height=stage.clientHeight;
+        camera.aspect=width/height; camera.fov=width<height ? 47 : 39; camera.updateProjectionMatrix();
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.6));
+        renderer.setSize(width,height,false);
+      }
+      window.addEventListener("resize",resize,{passive:true});
+      window.visualViewport && window.visualViewport.addEventListener("resize",resize,{passive:true});
+      function selectAt(event) {
+        if (mode!=="plans" && mode!=="content") return;
+        const rect=canvas.getBoundingClientRect();
+        pointer.x=((event.clientX-rect.left)/rect.width)*2-1;
+        pointer.y=-((event.clientY-rect.top)/rect.height)*2+1;
+        raycaster.setFromCamera(pointer,camera);
+        const hits=raycaster.intersectObjects(cards,true);
+        if(hits.length){let object=hits[0].object;while(object && object.userData.planIndex===undefined)object=object.parent;if(object)openPlan(object.userData.planIndex);}
+      }
+      canvas.addEventListener("pointerdown",function(event){pointerDown={x:event.clientX,y:event.clientY};dragged=false;canvas.setPointerCapture(event.pointerId);});
+      canvas.addEventListener("pointermove",function(event){
+        if(!pointerDown)return;
+        const dx=event.clientX-pointerDown.x, dy=event.clientY-pointerDown.y;
+        if(Math.abs(dx)+Math.abs(dy)>4){dragged=true;orbitOffset+=dx*.006;pointerDown={x:event.clientX,y:event.clientY};}
+      });
+      canvas.addEventListener("pointerup",function(event){if(pointerDown && !dragged)selectAt(event);pointerDown=null;});
+      canvas.addEventListener("pointercancel",function(){pointerDown=null;});
+
+      function setCardPosition(group,index,time,dt){
+        const angle=time*.18+orbitOffset+index*Math.PI*2/cards.length;
+        if(mode==="content" && index===selected){
+          const narrow=stage.clientWidth<720, portrait=stage.clientHeight>stage.clientWidth;
+          const targetX=portrait?-1.65:-4.35, targetY=portrait?3.0:1.85, targetZ=portrait?1.2:1.0;
+          const originalX=Math.cos(angle)*4.15, originalY=1.68+Math.sin(angle*2.0)*.55, originalZ=Math.sin(angle)*2.0-.1;
+          const phase=Math.max(0,time-selectedAt);
+          const ease=function(value){const t=Math.max(0,Math.min(1,value));return t*t*(3-2*t);};
+          let x, y, z;
+          if(phase<.42){
+            const progress=ease(phase/.42);
+            x=originalX*(1-progress); y=originalY*(1-progress)+1.88*progress; z=originalZ*(1-progress)+3.7*progress;
+          }else{
+            const progress=ease((phase-.42)/.72);
+            x=targetX*progress; y=1.88*(1-progress)+targetY*progress; z=3.7*(1-progress)+targetZ*progress;
+          }
+          const smoothing=Math.min(1,dt*4.5);
+          group.position.set(x,y,z);
+          const angleY=Math.atan2(-x,camera.position.z-z);
+          group.rotation.y+=(angleY-group.rotation.y)*smoothing;
+          const scale=phase<.42?1.12:(portrait ? .78 : narrow ? .82 : 1.02);
+          group.scale.setScalar(scale);
+          return;
+        }
+        const radius=mode==="content"&&stage.clientWidth<720?3.35:4.15;
+        const x=Math.cos(angle)*radius;
+        const z=Math.sin(angle)*2.0-.1;
+        const y=1.68+Math.sin(angle*2.0)*.55;
+        const smoothing=Math.min(1,dt*4.5);
+        group.position.lerp(new THREE.Vector3(x,y,z),smoothing);
+        const angleY=Math.atan2(-x,camera.position.z-z);
+        group.rotation.y+=(angleY-group.rotation.y)*smoothing;
+        const scale=1.0+Math.max(0,Math.cos(angle))*.08;
+        group.scale.lerp(new THREE.Vector3(scale,scale,scale),smoothing);
+      }
+      function animate(now){
+        requestAnimationFrame(animate);
+        const dt=Math.min((now-lastTime)/1000,.04); lastTime=now;
+        if(!pausedLocal && !reducedMotion){elapsed+=dt;}
+        const introT=Math.min(elapsed/3.65,1);
+        const impactT=Math.max(0,Math.min((elapsed-.84)/.75,1));
+        const doorT=Math.max(0,Math.min((elapsed-1.5)/1.55,1));
+        const easeDoor=doorT*doorT*(3-2*doorT);
+        const fallProgress=Math.min(1,elapsed/.84);
+        const fallEase=1-Math.pow(1-fallProgress,3);
+        const ringBounce=elapsed>.84?Math.sin((elapsed-.84)*8)*Math.exp(-(elapsed-.84)*5)*.22:0;
+        splashRing.position.y=5.35+(1.02-5.35)*fallEase+ringBounce;
+        splashRing.rotation.z=elapsed*.3;
+        splashRing.scale.setScalar(.9+introT*.16);
+        splashRing.visible=mode==="intro" || introT<1;
+        platform.visible=introT>.46 || mode!=="intro";
+        orbGroup.position.y=1.73*Math.min(1,Math.max(0,(elapsed-1.08)/1.55));
+        orbGroup.scale.setScalar(mode==="topic"?.98:1);
+        if(!pausedLocal && !reducedMotion){orbGroup.rotation.y+=dt*.085;orbitHalo.rotation.z+=dt*.11;particles.rotation.y+=dt*.008;}
+        doorSet.forEach(function(door){door.hinge.rotation.y=-door.side*easeDoor*.93;});
+        doorLight.intensity=30+Math.sin(elapsed*1.7)*2;
+        impact=impactT;
+        floorUniforms.uTime.value=elapsed;
+        floorUniforms.uImpact.value=2.2+Math.max(0,elapsed-1.0)*.62;
+        impactRings.forEach(function(ring,index){
+          const age=Math.max(0,elapsed-.82-index*.19);
+          const scale=1+age*(.9+index*.12);
+          ring.scale.setScalar(scale);
+          ring.material.opacity=Math.max(0,.52-age*.22);
+          ring.visible=age<2.1;
+        });
+        droplets.forEach(function(drop,index){
+          const age=elapsed-.82;
+          if(age<0||age>1.4){drop.mesh.visible=false;return;}
+          const t=Math.min(age*drop.speed,1.7);
+          const horizontal=t*drop.size;
+          drop.mesh.visible=true;
+          drop.mesh.position.set(Math.cos(drop.angle)*horizontal,.45+drop.height*t-2.1*t*t,Math.sin(drop.angle)*horizontal);
+          drop.mesh.scale.setScalar(Math.max(.06,1-t*.38));
+        });
+        cards.forEach(function(group,index){setCardPosition(group,index,elapsed,dt);});
+        const cameraTargetX=mode==="content" && stage.clientWidth>stage.clientHeight ? 1.15 : 0;
+        camera.position.x+=(cameraTargetX-camera.position.x)*Math.min(dt*.72,1);
+        const targetX=mode==="content" && stage.clientWidth>stage.clientHeight ? 1.0:0;
+        camera.lookAt(targetX,1.35,0);
+        renderer.render(scene,camera);
+      }
+      requestAnimationFrame(animate);
+      sceneApi={
+        setMode:function(next,index){mode=next;selected=index;cards.forEach(function(card){card.visible=next==="plans"||next==="content";});},
+        setSelected:function(index){selected=index;selectedAt=elapsed;},
+        setPaused:function(value){pausedLocal=value;},
+        skipIntro:function(){elapsed=Math.max(elapsed,3.7);},
+        resize:resize
+      };
+      return true;
+    }
+
+    renderPlan(0);
+    if(reducedMotion){
+      paused=true;
+      document.getElementById("pauseButton").setAttribute("aria-pressed","true");
+      document.getElementById("pauseButton").setAttribute("aria-label","Animatsiyani davom ettirish");
+      document.getElementById("pauseButton").title="Animatsiyani davom ettirish";
+      document.getElementById("pauseButton").innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg>';
+      skipIntro();
+    } else {
+      introTimer=window.setTimeout(function(){setState("topic");loading.classList.add("is-ready");},3850);
+    }
+    initThree().then(function(){
+      if(sceneApi) sceneApi.setMode(currentState,currentPlan);
+      if(reducedMotion && sceneApi) sceneApi.skipIntro();
+      window.setTimeout(function(){loading.classList.add("is-ready");},250);
+    }).catch(function(error){
+      stage.classList.add("webgl-fallback");
+      canvas.style.display="none";
+      if(currentState==="intro") skipIntro();
+      else loading.classList.add("is-ready");
+      console.warn("3D sahna yuklanmadi; muqobil ko‘rinish ishga tushdi.",error);
+    });
+  </script>
+</body>
+</html>
+
