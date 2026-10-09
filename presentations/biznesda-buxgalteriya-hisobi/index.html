@@ -567,6 +567,7 @@
     const canvas = document.getElementById("scene");
     async function initThree() {
       const THREE = await import("three");
+      const { Reflector } = await import("three/addons/objects/Reflector.js");
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x080807);
       scene.fog = new THREE.FogExp2(0x080807, .026);
@@ -601,10 +602,21 @@
       const floorMat = new THREE.ShaderMaterial({
         uniforms: floorUniforms,
         vertexShader: "uniform float uTime; varying vec2 vP; varying float vWave; void main(){ vec3 p=position; float d=length(p.xy); float w=sin(d*3.8-uTime*2.4)*exp(-d*.42); p.z += w*.026; vP=p.xy; vWave=w; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }",
-        fragmentShader: "uniform float uTime; uniform float uImpact; varying vec2 vP; varying float vWave; void main(){ float d=length(vP); float ring=sin(d*23.0-uTime*3.0)*exp(-abs(d-uImpact)*.82); float fine=sin(vP.x*6.0+sin(vP.y*4.0+uTime))*cos(vP.y*5.0-uTime*.8); float shine=max(0.0,ring*.5+vWave*.28+fine*.035); vec3 base=vec3(.015,.016,.015); vec3 gold=vec3(.32,.235,.105); gl_FragColor=vec4(base+gold*shine,1.0); }"
+        fragmentShader: "uniform float uTime; uniform float uImpact; varying vec2 vP; varying float vWave; void main(){ float d=length(vP); float ring=sin(d*23.0-uTime*3.0)*exp(-abs(d-uImpact)*.82); float fine=sin(vP.x*6.0+sin(vP.y*4.0+uTime))*cos(vP.y*5.0-uTime*.8); float shine=max(0.0,ring*.5+vWave*.28+fine*.035); vec3 base=vec3(.012,.013,.012); vec3 gold=vec3(.28,.205,.092); gl_FragColor=vec4(base+gold*shine,.52+clamp(shine*.45,0.0,.35)); }",
+        transparent: true, depthWrite: false
       });
+      const reflector = new Reflector(new THREE.PlaneGeometry(80,80), {
+        clipBias: .003, textureWidth: 512, textureHeight: 512, color: 0x382f1d
+      });
+      reflector.rotation.x = -Math.PI / 2; reflector.position.y = -.055; scene.add(reflector);
       const floor = new THREE.Mesh(new THREE.PlaneGeometry(80,80,1,1), floorMat);
-      floor.rotation.x = -Math.PI / 2; floor.position.y = -.04; floor.receiveShadow = true; scene.add(floor);
+      floor.rotation.x = -Math.PI / 2; floor.position.y = -.035; floor.receiveShadow = true; scene.add(floor);
+      const renderReflection = reflector.onBeforeRender.bind(reflector);
+      reflector.onBeforeRender = function(activeRenderer, activeScene, activeCamera) {
+        floor.visible = false;
+        renderReflection(activeRenderer, activeScene, activeCamera);
+        floor.visible = true;
+      };
 
       const platform = new THREE.Group(); platform.position.y = .1; scene.add(platform);
       const plinth = new THREE.Mesh(new THREE.CylinderGeometry(2.05,2.28,.31,96), darkMetal);
@@ -645,8 +657,6 @@
 
       const splashRing = new THREE.Mesh(new THREE.TorusGeometry(.83,.095,24,112), brightGold);
       splashRing.position.set(0,5.4,-.1); splashRing.rotation.x=Math.PI/2; splashRing.castShadow=true; scene.add(splashRing);
-      const ringReflection = new THREE.Mesh(new THREE.TorusGeometry(.85,.038,12,112), gold);
-      ringReflection.rotation.x=Math.PI/2; ringReflection.position.set(0,.012,.1); ringReflection.material=gold.clone(); ringReflection.material.transparent=true; ringReflection.material.opacity=.23; scene.add(ringReflection);
       const impactRings = [];
       for (let i=0;i<4;i++) {
         const material = new THREE.MeshBasicMaterial({ color: 0xd7ad5d, transparent: true, opacity: .48-i*.085, side: THREE.DoubleSide });
@@ -654,8 +664,9 @@
         ring.rotation.x=-Math.PI/2; ring.position.y=.04+i*.002; scene.add(ring); impactRings.push(ring);
       }
       const droplets = [];
+      const dropletMat = new THREE.MeshPhysicalMaterial({ color:0xd8c9ac, metalness:.08, roughness:.045, transmission:.78, thickness:.24, clearcoat:1, transparent:true, opacity:.78 });
       for (let i=0;i<28;i++) {
-        const mesh = new THREE.Mesh(new THREE.SphereGeometry(.035+Math.random()*.045,12,12), brightGold);
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(.035+Math.random()*.045,12,12), dropletMat);
         mesh.visible=false; scene.add(mesh);
         droplets.push({ mesh:mesh, angle:Math.random()*Math.PI*2, speed:1.1+Math.random()*2.4, height:1.1+Math.random()*2.4, size:.65+Math.random()*.8 });
       }
